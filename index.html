@@ -121,7 +121,7 @@
                 return await kodiRequest("Player.GetItem", { playerid: 1, properties: ["title", "showtitle", "season", "episode", "duration"] });
             },
             play_pause: async () => {
-                return await kodiRequest("Player.PlayPause", { playerid: 1 });
+                return await koidRequest ? await kodiRequest("Player.PlayPause", { playerid: 1 }) : await kodiRequest("Player.PlayPause", { playerid: 1 });
             },
             show_notification: async ({ title, message }) => {
                 return await kodiRequest("GUI.ShowNotification", { title: title, message: message, displaytime: 4000 });
@@ -196,8 +196,8 @@
             input.value = "";
 
             try {
-                // Fixed namespace wrapper for browser bundle SDK
-                const client = new google.genai.Client({ apiKey: apiKey });
+                // Correct global GenAI constructor from the browser SDK bundle
+                const client = new GenAI({ apiKey: apiKey });
                 const chat = client.chats.create({
                     model: "models/gemini-3.8-flash",
                     config: {
