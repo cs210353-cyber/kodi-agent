@@ -2,217 +2,113 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kodi Messenger Agent</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Inter Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- FontAwesome for Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: {
-                        street: {
-                            900: '#0a0a0c',
-                            800: '#121316',
-                            700: '#1a1b20',
-                            600: '#272932',
-                            neon: '#00ff66',
-                            accent: '#ff0055'
-                        }
-                    }
-                }
-            }
-        }
-    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kodi Messenger Remote</title>
+    <script src="https://cdn.jsdelivr.net/npm/@google/genai@0.1.1/dist/bundle.min.js"></script>
     <style>
-        body { background-color: #0a0a0c; color: #f3f4f6; }
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: #121316; }
-        ::-webkit-scrollbar-thumb { background: #272932; border-radius: 2px; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        body { background-color: #121212; color: #e0e0e0; display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
+        header { background-color: #1f1f1f; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2c2c2c; }
+        .bot-profile { display: flex; align-items: center; gap: 10px; }
+        .bot-avatar { width: 36px; height: 36px; background-color: #2e7d32; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; color: white; }
+        .bot-info h1 { font-size: 15px; font-weight: 600; color: #fff; }
+        .bot-info p { font-size: 11px; color: #4caf50; }
+        .settings-btn { background: none; border: none; color: #aaa; font-size: 20px; cursor: pointer; padding: 4px; }
+        .settings-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; align-items: center; justify-content: center; padding: 20px; }
+        .modal-content { background: #1e1e1e; padding: 20px; border-radius: 12px; width: 100%; max-width: 360px; border: 1px solid #333; }
+        .modal-content h2 { font-size: 16px; margin-bottom: 12px; color: #fff; }
+        .modal-content input { width: 100%; padding: 10px; background: #121212; border: 1px solid #444; color: #fff; border-radius: 6px; margin-bottom: 12px; font-size: 14px; }
+        .modal-content button { width: 100%; padding: 10px; background: #4caf50; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
+        #chat-container { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+        .message { max-width: 80%; padding: 10px 14px; border-radius: 16px; font-size: 14px; line-height: 1.4; word-wrap: break-word; }
+        .user-message { background: #005c4b; color: #e9edef; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .bot-message { background: #202c33; color: #e9edef; align-self: flex-start; border-bottom-left-radius: 4px; }
+        .system-message { background: #182229; color: #8696a0; align-self: center; font-size: 12px; border-radius: 8px; text-align: center; max-width: 95%; }
+        .error-message { background: #5c0000; color: #ff8080; align-self: center; font-size: 12px; border-radius: 8px; text-align: center; max-width: 95%; }
+        .quick-actions { padding: 8px 12px; display: flex; gap: 8px; overflow-x: auto; background: #161616; border-top: 1px solid #222; }
+        .quick-action-btn { background: #262626; border: 1px solid #333; color: #ccc; padding: 6px 12px; border-radius: 16px; font-size: 12px; white-space: nowrap; cursor: pointer; }
+        .quick-action-btn:active { background: #333; }
+        .input-bar { padding: 10px 12px; background: #1f1f1f; display: flex; align-items: center; gap: 8px; border-top: 1px solid #2c2c2c; }
+        .input-bar input { flex: 1; background: #2a2a2a; border: none; padding: 10px 14px; border-radius: 20px; color: #fff; font-size: 14px; outline: none; }
+        .send-btn { background: #00a884; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; cursor: pointer; flex-shrink: 0; }
+        .send-btn:active { background: #008f72; }
     </style>
 </head>
-<body class="h-[100dvh] flex flex-col font-sans antialiased overflow-hidden selection:bg-street-neon selection:text-black">
+<body>
 
-    <header class="border-b border-street-600 bg-street-800/90 backdrop-blur shrink-0 z-20">
-        <div class="max-w-md mx-auto px-4 h-14 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="relative">
-                    <div class="w-9 h-9 rounded-full bg-street-700 border border-street-600 flex items-center justify-center text-street-neon shadow-lg shadow-street-neon/10">
-                        <i class="fa-solid fa-robot text-sm"></i>
-                    </div>
-                    <span class="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-street-neon ring-2 ring-street-800"></span>
-                </div>
-                <div>
-                    <h1 class="font-bold text-sm tracking-wide text-white">Kodi Agent</h1>
-                    <p class="text-[10px] text-street-neon">Online & Ready</p>
-                </div>
-            </div>
-
-            <div class="flex items-center space-x-2">
-                <button onclick="toggleSettingsModal()" class="w-9 h-9 rounded-full bg-street-700 hover:bg-street-600 text-gray-300 border border-street-600 flex items-center justify-center transition">
-                    <i class="fa-solid fa-gear text-xs text-street-neon"></i>
-                </button>
+    <header>
+        <div class="bot-profile">
+            <div class="bot-avatar">📺</div>
+            <div class="bot-info">
+                <h1>Kodi Agent</h1>
+                <p>Online & Ready</p>
             </div>
         </div>
+        <button class="settings-btn" onclick="toggleSettings()">⚙️</button>
     </header>
 
-    <main class="flex-1 max-w-md w-full mx-auto flex flex-col overflow-hidden relative">
-        <!-- Message Bubbles Scroll Area -->
-        <div id="chatContainer" class="flex-1 overflow-y-auto p-4 space-y-4">
-            <div class="flex items-start gap-2.5">
-                <div class="w-7 h-7 rounded-full bg-street-700 border border-street-600 shrink-0 flex items-center justify-center text-street-neon text-xs">
-                    <i class="fa-solid fa-robot"></i>
-                </div>
-                <div class="bg-street-700/80 border border-street-600 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%] text-xs text-gray-200 leading-relaxed shadow-sm">
-                    Hey Christopher! Just text me what you want to watch or control on Kodi (e.g. <i>"Play Regular Show using Umbrella"</i>).
-                </div>
-            </div>
-        </div>
-
-        <!-- Floating Quick Suggestion Pills -->
-        <div class="px-4 py-2 shrink-0 flex gap-2 overflow-x-auto no-scrollbar border-t border-street-700/40 bg-street-800/40 backdrop-blur">
-            <button onclick="sendQuickMessage('Play Regular Show using Umbrella')" class="whitespace-nowrap px-3 py-1.5 rounded-full bg-street-700 hover:bg-street-600 border border-street-600 text-[11px] text-gray-300 transition">🎬 Play Regular Show</button>
-            <button onclick="sendQuickMessage('What am I watching?')" class="whitespace-nowrap px-3 py-1.5 rounded-full bg-street-700 hover:bg-street-600 border border-street-600 text-[11px] text-gray-300 transition">ℹ️ Status</button>
-            <button onclick="sendQuickMessage('Toggle play or pause')" class="whitespace-nowrap px-3 py-1.5 rounded-full bg-street-700 hover:bg-street-600 border border-street-600 text-[11px] text-gray-300 transition">⏯️ Play/Pause</button>
-        </div>
-
-        <!-- Messenger Input Bar Pinned to Bottom -->
-        <div class="p-3 bg-street-800 border-t border-street-600 shrink-0">
-            <form id="messageForm" onsubmit="handleChatSubmit(event)" class="flex items-center gap-2">
-                <div class="flex-1 relative">
-                    <input type="text" id="userInput" placeholder="Message Kodi Agent..." autocomplete="off"
-                        class="w-full bg-street-900 border border-street-600 rounded-full px-4 py-3 text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-street-neon transition">
-                </div>
-                <button type="submit" id="sendBtn" class="w-11 h-11 rounded-full bg-street-neon hover:bg-emerald-400 text-black shrink-0 flex items-center justify-center transition shadow-md shadow-street-neon/20">
-                    <i class="fa-solid fa-paper-plane text-xs"></i>
-                </button>
-            </form>
-        </div>
-    </main>
-
-    <div id="settingsModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
-        <div class="bg-street-800 border border-street-600 rounded-2xl p-5 max-w-sm w-full shadow-2xl">
-            <h3 class="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                <i class="fa-solid fa-gear text-street-neon"></i> Connection Settings
-            </h3>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-[11px] font-medium text-gray-400 mb-1">Gemini API Key</label>
-                    <input type="password" id="apiKeyInput" placeholder="AIzaSy..." class="w-full bg-street-900 border border-street-600 rounded-xl px-3 py-2 text-xs text-gray-100 focus:outline-none focus:border-street-neon">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-medium text-gray-400 mb-1">Kodi JSON-RPC URL</label>
-                    <input type="text" id="kodiUrlInput" value="http://192.168.4.26:8080/jsonrpc" class="w-full bg-street-900 border border-street-600 rounded-xl px-3 py-2 text-xs text-gray-100 focus:outline-none focus:border-street-neon">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-400 mb-1">Username</label>
-                        <input type="text" id="kodiUserInput" value="kodi" class="w-full bg-street-900 border border-street-600 rounded-xl px-3 py-2 text-xs text-gray-100 focus:outline-none focus:border-street-neon">
-                    </div>
-                    <div>
-                        <label class="block text-[11px] font-medium text-gray-400 mb-1">Password</label>
-                        <input type="password" id="kodiPassInput" value="12345" class="w-full bg-street-900 border border-street-600 rounded-xl px-3 py-2 text-xs text-gray-100 focus:outline-none focus:border-street-neon">
-                    </div>
-                </div>
-            </div>
-            <div class="mt-5 flex justify-end space-x-2">
-                <button onclick="toggleSettingsModal()" class="px-3 py-2 rounded-xl bg-street-700 hover:bg-street-600 text-xs text-gray-300 transition">Cancel</button>
-                <button onclick="saveSettings()" class="px-4 py-2 rounded-xl bg-street-neon hover:bg-emerald-400 text-xs font-bold text-black transition">Save</button>
-            </div>
+    <div id="settingsModal" class="settings-modal">
+        <div class="modal-content">
+            <h2>Gemini API Settings</h2>
+            <input type="password" id="apiKeyInput" placeholder="Enter Gemini API Key">
+            <button onclick="saveApiKey()">Save Key</button>
         </div>
     </div>
 
+    <div id="chat-container">
+        <div class="message bot-message">Hey Christopher! Just text me what you want to watch or control on Kodi (e.g., "Play Regular Show using Umbrella").</div>
+    </div>
+
+    <div class="quick-actions">
+        <button class="quick-action-btn" onclick="sendQuickCommand('Play Regular Show using Umbrella')">📺 Play Regular Show</button>
+        <button class="quick-action-btn" onclick="sendQuickCommand('What is currently playing?')">ℹ️ What's Playing?</button>
+        <button class="quick-action-btn" onclick="sendQuickCommand('Toggle play pause')">⏯️ Play/Pause</button>
+    </div>
+
+    <div class="input-bar">
+        <input type="text" id="userInput" placeholder="Message Kodi Agent..." autocomplete="off">
+        <button class="send-btn" onclick="handleSendMessage()">
+            <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+    </div>
+
     <script>
-        let config = {
-            apiKey: localStorage.getItem('GEMINI_API_KEY') || '',
-            kodiUrl: localStorage.getItem('KODI_URL') || 'http://192.168.4.26:8080/jsonrpc',
-            kodiUser: localStorage.getItem('KODI_USER') || 'kodi',
-            kodiPass: localStorage.getItem('KODI_PASS') || '12345'
-        };
+        const KODI_IP = "192.168.4.26";
+        const PORT = 8080;
+        const KODI_URL = `http://${KODI_IP}:${PORT}/jsonrpc`;
+        const KODI_AUTH = 'kodi:12345';
 
-        document.getElementById('apiKeyInput').value = config.apiKey;
-        document.getElementById('kodiUrlInput').value = config.kodiUrl;
-        document.getElementById('kodiUserInput').value = config.kodiUser;
-        document.getElementById('kodiPassInput').value = config.kodiPass;
+        let apiKey = localStorage.getItem('gemini_api_key') || '';
 
-        function toggleSettingsModal() {
-            document.getElementById('settingsModal').classList.toggle('hidden');
-        }
-
-        function saveSettings() {
-            config.apiKey = document.getElementById('apiKeyInput').value.trim();
-            config.kodiUrl = document.getElementById('kodiUrlInput').value.trim();
-            config.kodiUser = document.getElementById('kodiUserInput').value.trim();
-            config.kodiPass = document.getElementById('kodiPassInput').value.trim();
-
-            localStorage.setItem('GEMINI_API_KEY', config.apiKey);
-            localStorage.setItem('KODI_URL', config.kodiUrl);
-            localStorage.setItem('KODI_USER', config.kodiUser);
-            localStorage.setItem('KODI_PASS', config.kodiPass);
-
-            toggleSettingsModal();
-            appendSystemMessage("Settings successfully updated.");
-        }
-
-        function appendMessage(sender, text) {
-            const container = document.getElementById('chatContainer');
-            const isUser = sender === 'You';
-            
-            const wrapper = document.createElement('div');
-            wrapper.className = `flex items-start gap-2.5 ${isUser ? 'flex-row-reverse' : ''}`;
-            
-            if (!isUser) {
-                wrapper.innerHTML = `
-                    <div class="w-7 h-7 rounded-full bg-street-700 border border-street-600 shrink-0 flex items-center justify-center text-street-neon text-xs">
-                        <i class="fa-solid fa-robot"></i>
-                    </div>
-                    <div class="bg-street-700/80 border border-street-600 rounded-2xl rounded-tl-sm px-4 py-3 max-w-[80%] text-xs text-gray-200 leading-relaxed shadow-sm">
-                        ${text}
-                    </div>
-                `;
-            } else {
-                wrapper.innerHTML = `
-                    <div class="w-7 h-7 rounded-full bg-street-neon text-black shrink-0 flex items-center justify-center font-bold text-[10px]">
-                        C
-                    </div>
-                    <div class="bg-street-neon text-black font-medium rounded-2xl rounded-tr-sm px-4 py-3 max-w-[80%] text-xs leading-relaxed shadow-sm">
-                        ${text}
-                    </div>
-                `;
+        function toggleSettings() {
+            const modal = document.getElementById('settingsModal');
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+            if (modal.style.display === 'flex') {
+                document.getElementById('apiKeyInput').value = apiKey;
             }
-            
-            container.appendChild(wrapper);
-            container.scrollTop = container.scrollHeight;
         }
 
-        function appendSystemMessage(text) {
-            const container = document.getElementById('chatContainer');
-            const div = document.createElement('div');
-            div.className = "text-center my-2";
-            div.innerHTML = `<span class="text-[10px] bg-street-700/60 border border-street-600 text-gray-400 px-3 py-1 rounded-full">${text}</span>`;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
+        function saveApiKey() {
+            apiKey = document.getElementById('apiKeyInput').value.trim();
+            localStorage.setItem('gemini_api_key', apiKey);
+            toggleSettings();
+            appendMessage("Settings successfully updated.", "system-message");
         }
 
-        function sendQuickMessage(text) {
-            document.getElementById('userInput').value = text;
-            handleChatSubmit(new Event('submit'));
+        if (!apiKey) {
+            appendMessage("Please open Settings and enter your Gemini API Key.", "system-message");
         }
 
-        async function callKodiRPC(method, params = {}) {
-            const payload = { jsonrpc: "2.0", method: method, params: params, id: 1 };
-            const headers = { 'Content-Type': 'application/json' };
-            if (config.kodiUser && config.kodiPass) {
-                headers['Authorization'] = 'Basic ' + btoa(config.kodiUser + ':' + config.kodiPass);
-            }
+        async function kodiRequest(method, params = {}) {
             try {
-                const response = await fetch(config.kodiUrl, { method: 'POST', headers: headers, body: JSON.stringify(payload) });
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const response = await fetch(KODI_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Basic ' + btoa(KODI_AUTH)
+                    },
+                    body: JSON.stringify({ jsonrpc: "2.0", method: method, params: params, id: 1 })
+                });
                 const data = await response.json();
                 return data.result;
             } catch (error) {
@@ -220,91 +116,132 @@
             }
         }
 
-        // Tool Definitions
-        async function get_currently_playing() {
-            const res = await callKodiRPC("Player.GetItem", { playerid: 1, properties: ["title", "showtitle", "season", "episode"] });
-            if (res && res.item) {
-                const title = res.item.title || res.item.label || "Unknown Title";
-                const show = res.item.showtitle ? `${res.item.showtitle} (S${res.item.season}E${res.item.episode})` : "Active Media";
-                return `Currently playing: ${title} - ${show}`;
+        const tools = {
+            get_currently_playing: async () => {
+                return await kodiRequest("Player.GetItem", { playerid: 1, properties: ["title", "showtitle", "season", "episode", "duration"] });
+            },
+            play_pause: async () => {
+                return await kodiRequest("Player.PlayPause", { playerid: 1 });
+            },
+            show_notification: async ({ title, message }) => {
+                return await kodiRequest("GUI.ShowNotification", { title: title, message: message, displaytime: 4000 });
+            },
+            play_umbrella_show: async ({ query }) => {
+                const params = {
+                    addon: "plugin.video.umbrella",
+                    params: { action: "search", q: query }
+                };
+                return await kodiRequest("Addons.ExecuteAddon", params);
             }
-            return "No media currently playing.";
-        }
+        };
 
-        async function play_pause() {
-            const res = await callKodiRPC("Player.PlayPause", { playerid: 1 });
-            return "Toggled play/pause on Kodi.";
-        }
-
-        async function show_notification(args) {
-            await callKodiRPC("GUI.ShowNotification", { title: args.title || "Kodi Agent", message: args.message || "Hello!", displaytime: 4000 });
-            return `Notification sent to TV: "${args.message}"`;
-        }
-
-        async function play_umbrella_show(args) {
-            const query = args.query || args.q || "";
-            await callKodiRPC("Addons.ExecuteAddon", { addon: "plugin.video.umbrella", params: { action: "search", q: query } });
-            return `Launched Umbrella search for "${query}" on Kodi.`;
-        }
-
-        const toolDeclarations = [
-            { name: "get_currently_playing", description: "Queries Kodi to see what media is currently playing.", parameters: { type: "OBJECT", properties: {} } },
-            { name: "play_pause", description: "Toggles play or pause on Kodi.", parameters: { type: "OBJECT", properties: {} } },
-            { name: "show_notification", description: "Pushes a notification toast to the TV.", parameters: { type: "OBJECT", properties: { title: { type: "STRING" }, message: { type: "STRING" } }, required: ["title", "message"] } },
-            { name: "play_umbrella_show", description: "Searches and plays a show using the Umbrella add-on.", parameters: { type: "OBJECT", properties: { query: { type: "STRING", description: "Show or movie name" } }, required: ["query"] } }
+        const functionDeclarations = [
+            {
+                name: "get_currently_playing",
+                description: "Queries Kodi to see what media title, show, season, and episode are currently playing."
+            },
+            {
+                name: "play_pause",
+                description: "Toggles play or pause on the active Kodi media player."
+            },
+            {
+                name: "show_notification",
+                description: "Pushes a custom notification toast message to the Kodi TV screen.",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        title: { type: "STRING", description: "The title header of the notification." },
+                        message: { type: "STRING", description: "The body text of the notification message." }
+                    },
+                    required: ["title", "message"]
+                }
+            },
+            {
+                name: "play_umbrella_show",
+                description: "Searches or launches a show using the Umbrella video add-on in Kodi.",
+                parameters: {
+                    type: "OBJECT",
+                    properties: {
+                        query: { type: "STRING", description: "The name of the TV show or movie to play via Umbrella." }
+                    },
+                    required: ["query"]
+                }
+            }
         ];
 
-        async function handleChatSubmit(event) {
-            event.preventDefault();
-            const inputEl = document.getElementById('userInput');
-            const text = inputEl.value.trim();
-            if (!text) return;
+        function appendMessage(text, className) {
+            const container = document.getElementById('chat-container');
+            const msg = document.createElement('div');
+            msg.className = `message ${className}`;
+            msg.innerText = text;
+            container.appendChild(msg);
+            container.scrollTop = container.scrollHeight;
+        }
 
-            if (!config.apiKey) {
-                appendSystemMessage("Please open Settings and enter your Gemini API Key.");
-                toggleSettingsModal();
+        function sendQuickCommand(cmd) {
+            document.getElementById('userInput').value = cmd;
+            handleSendMessage();
+        }
+
+        async function handleSendMessage() {
+            const input = document.getElementById('userInput');
+            const text = input.value.trim();
+            if (!text) return;
+            if (!apiKey) {
+                appendMessage("Please configure your Gemini API Key in Settings first.", "error-message");
                 return;
             }
 
-            inputEl.value = '';
-            appendMessage('You', text);
-
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.apiKey}`;
-            const payload = {
-                contents: [{ parts: [{ text: text }] }],
-                tools: [{ functionDeclarations: toolDeclarations }],
-                systemInstruction: { parts: [{ text: "You are a smart home chat agent for Kodi. Execute tools immediately when requested." }] }
-            };
+            appendMessage(text, "user-message");
+            input.value = "";
 
             try {
-                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.error?.message || `API error ${response.status}`);
-                }
+                const client = new GoogleGenAI({ apiKey: apiKey });
+                const chat = client.chats.create({
+                    model: "models/gemini-3.8-flash",
+                    config: {
+                        systemInstruction: "You are a smart home execution agent for Kodi. When the user requests to play a show, movie, or media title, you MUST invoke the play_umbrella_show tool.",
+                        tools: [{ functionDeclarations: functionDeclarations }],
+                        temperature: 0.0
+                    }
+                });
 
-                const result = await response.json();
-                const candidate = result.candidates?.[0];
+                let response = await chat.sendMessage({ message: text });
 
-                if (candidate && candidate.content?.parts?.[0]?.functionCall) {
-                    const fc = candidate.content.parts[0].functionCall;
-                    let toolResult = "";
-
-                    if (fc.name === 'get_currently_playing') toolResult = await get_currently_playing();
-                    else if (fc.name === 'play_pause') toolResult = await play_pause();
-                    else if (fc.name === 'show_notification') toolResult = await show_notification(fc.args);
-                    else if (fc.name === 'play_umbrella_show') toolResult = await play_umbrella_show(fc.args);
-
-                    appendMessage('Agent', `<i class="fa-solid fa-circle-check text-street-neon mr-1"></i> ${toolResult}`);
-                } else if (candidate && candidate.content?.parts?.[0]?.text) {
-                    appendMessage('Agent', candidate.content.parts[0].text);
-                } else {
-                    appendMessage('Agent', "Done.");
+                if (response.functionCalls && response.functionCalls.length > 0) {
+                    for (const call of response.functionCalls) {
+                        appendMessage(`Executing tool: ${call.name}(${JSON.stringify(call.args)})`, "system-message");
+                        
+                        if (tools[call.name]) {
+                            const result = await tools[call.name](call.args);
+                            
+                            // Send function response back to Gemini
+                            const followUp = await chat.sendMessage({
+                                message: [{
+                                    functionResponse: {
+                                        name: call.name,
+                                        response: { result: result }
+                                    }
+                                }]
+                            });
+                            appendMessage(followUp.text || "Command executed successfully on Kodi.", "bot-message");
+                        } else {
+                            appendMessage(`Error: Unknown tool ${call.name}`, "error-message");
+                        }
+                    }
+                } else if (response.text) {
+                    appendMessage(response.text, "bot-message");
                 }
             } catch (err) {
-                appendMessage('Agent', `<span class="text-street-accent">Error: ${err.message}</span>`);
+                appendMessage(`Error: ${err.message}`, "error-message");
             }
         }
+
+        document.getElementById('userInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                handleSendMessage();
+            }
+        });
     </script>
 </body>
 </html>
