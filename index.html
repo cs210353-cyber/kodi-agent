@@ -196,7 +196,8 @@
             input.value = "";
 
             try {
-                const client = new GoogleGenAI({ apiKey: apiKey });
+                // Fixed namespace wrapper for browser bundle SDK
+                const client = new google.genai.Client({ apiKey: apiKey });
                 const chat = client.chats.create({
                     model: "models/gemini-3.8-flash",
                     config: {
@@ -215,7 +216,6 @@
                         if (tools[call.name]) {
                             const result = await tools[call.name](call.args);
                             
-                            // Send function response back to Gemini
                             const followUp = await chat.sendMessage({
                                 message: [{
                                     functionResponse: {
