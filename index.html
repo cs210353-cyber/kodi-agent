@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kodi Messenger Remote</title>
-    <script src="https://cdn.jsdelivr.net/npm/@google/genai@0.1.1/dist/bundle.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         body { background-color: #121212; color: #e0e0e0; display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
@@ -79,6 +78,7 @@
         const KODI_AUTH = 'kodi:12345';
 
         let apiKey = localStorage.getItem('gemini_api_key') || '';
+        let conversationHistory = [];
 
         function toggleSettings() {
             const modal = document.getElementById('settingsModal');
@@ -116,12 +116,12 @@
             }
         }
 
-        const tools = {
+        const toolsImplementation = {
             get_currently_playing: async () => {
                 return await kodiRequest("Player.GetItem", { playerid: 1, properties: ["title", "showtitle", "season", "episode", "duration"] });
             },
             play_pause: async () => {
-                return await koidRequest ? await kodiRequest("Player.PlayPause", { playerid: 1 }) : await kodiRequest("Player.PlayPause", { playerid: 1 });
+                return await kodiRequest("Player.PlayPause", { playerid: 1 });
             },
             show_notification: async ({ title, message }) => {
                 return await kodiRequest("GUI.ShowNotification", { title: title, message: message, displaytime: 4000 });
@@ -195,42 +195,79 @@
             appendMessage(text, "user-message");
             input.value = "";
 
+            conversationHistory.push({ role: "user", parts: [{ text: text }] });
+
             try {
-                // Correct global GenAI constructor from the browser SDK bundle
-                const client = new GenAI({ apiKey: apiKey });
-                const chat = client.chats.create({
-                    model: "models/gemini-3.8-flash",
-                    config: {
-                        systemInstruction: "You are a smart home execution agent for Kodi. When the user requests to play a show, movie, or media title, you MUST invoke the play_umbrella_show tool.",
-                        tools: [{ functionDeclarations: functionDeclarations }],
-                        temperature: 0.0
-                    }
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+                
+                let payload = {
+                    contents: conversationHistory,
+                    systemInstruction: {
+                        parts: [{ text: "You are a smart home execution agent for Kodi. When the user requests to play a show, movie, or media title, you MUST invoke the play_umbrella_show tool." }]
+                    },
+                    tools: [{ functionDeclarations: functionDeclarations }],
+                    generationConfig: { temperature: 0.0 }
+                };
+
+                let response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
                 });
 
-                let response = await chat.sendMessage({ message: text });
+                let data = await response.json();
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
 
-                if (response.functionCalls && response.functionCalls.length > 0) {
-                    for (const call of response.functionCalls) {
-                        appendMessage(`Executing tool: ${call.name}(${JSON.stringify(call.args)})`, "system-message");
-                        
-                        if (tools[call.name]) {
-                            const result = await tools[call.name](call.args);
-                            
-                            const followUp = await chat.sendMessage({
-                                message: [{
-                                    functionResponse: {
-                                        name: call.name,
-                                        response: { result: result }
-                                    }
-                                }]
-                            });
-                            appendMessage(followUp.text || "Command executed successfully on Kodi.", "bot-message");
-                        } else {
-                            appendMessage(`Error: Unknown tool ${call.name}`, "error-message");
-                        }
+                let candidate = data.candidates[0].content;
+                conversationHistory.push(candidate);
+
+                let functionCall = candidate.parts.find(p => p.functionCall);
+
+                if (functionCall) {
+                    let call = functionCall.functionCall;
+                    appendMessage(`Executing tool: ${call.name}(${JSON.stringify(call.args)})`, "system-message");
+
+                    if (toolsImplementation[call.name]) {
+                        let toolResult = await toolsImplementation[call.name](call.args);
+
+                        // Send function response back to Gemini
+                        conversationHistory.push({
+                            role: "function",
+                            parts: [{
+                                functionResponse: {
+                                    name: call.name,
+                                    response: { result: toolResult }
+                                }
+                            }]
+                        });
+
+                        let followUpResponse = await fetch(url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: conversationHistory,
+                                systemInstruction: {
+                                    parts: [{ text: "You are a smart home execution agent for Kodi." }]
+                                },
+                                tools: [{ functionDeclarations: functionDeclarations }],
+                                generationConfig: { temperature: 0.0 }
+                            })
+                        });
+
+                        let followUpData = await followUpResponse.json();
+                        let followUpCandidate = followUpData.candidates[0].content;
+                        conversationHistory.push(followUpCandidate);
+
+                        let replyText = followUpCandidate.parts.find(p => p.text)?.text || "Command executed successfully on Kodi.";
+                        appendMessage(replyText, "bot-message");
+                    } else {
+                        appendMessage(`Error: Unknown tool ${call.name}`, "error-message");
                     }
-                } else if (response.text) {
-                    appendMessage(response.text, "bot-message");
+                } else {
+                    let replyText = candidate.parts.find(p => p.text)?.text || "";
+                    appendMessage(replyText, "bot-message");
                 }
             } catch (err) {
                 appendMessage(`Error: ${err.message}`, "error-message");
