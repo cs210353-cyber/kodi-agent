@@ -232,7 +232,6 @@
                     if (toolsImplementation[call.name]) {
                         let toolResult = await toolsImplementation[call.name](call.args);
 
-                        // Send function response back to Gemini
                         conversationHistory.push({
                             role: "function",
                             parts: [{
